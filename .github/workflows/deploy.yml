@@ -1,4 +1,5 @@
-# CI/CD
+# CI / CD
+
 name: Deploy to EC2
 
 on:
