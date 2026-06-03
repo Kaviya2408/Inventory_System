@@ -1,15 +1,32 @@
+name: Deploy to EC2
 
-script: |
-  cd /home/ec2-user/Inventory_System
+on:
+  push:
+    branches:
+      - main
 
-  git reset --hard HEAD
-  git clean -fd
-  git pull origin main
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
 
-  cd backend
-  npm install
+    steps:
+      - name: Deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /home/ec2-user/Inventory_System
 
-  cd ../frontend
-  rm -rf dist
-  npm install
-  npm run build
+            git reset --hard HEAD
+            git clean -fd
+            git pull origin main
+
+            cd backend
+            npm install
+
+            cd ../frontend
+            rm -rf dist
+            npm install
+            npm run build
