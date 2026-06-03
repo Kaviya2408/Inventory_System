@@ -1,3 +1,4 @@
+
 script: |
   cd /home/ec2-user/Inventory_System
 
