@@ -27,6 +27,21 @@ if (TWILIO_ACCOUNT_SID &&
   console.log('⚠️ Twilio not configured - OTP will be logged to console');
 }
 
+// Normalize phone numbers to +91XXXXXXXXXX format
+const normalizePhone = (phone) => {
+  if (!phone) return '';
+  let cleaned = phone.replace(/[\s\-()]/g, '');
+  if (!cleaned.startsWith('+')) {
+    cleaned = cleaned.replace(/\D/g, '');
+    if (cleaned.length === 10) {
+      cleaned = '+91' + cleaned;
+    } else if (cleaned.length === 12 && cleaned.startsWith('91')) {
+      cleaned = '+' + cleaned;
+    }
+  }
+  return cleaned;
+};
+
 // Generate 6-digit OTP
 const generateOTP = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -98,8 +113,10 @@ const signup = async (req, res) => {
       });
     }
 
+    const normalizedPhone = normalizePhone(phone);
+
     // Check if user already exists
-    const existingUser = await User.findOne({ $or: [{ email }, { phone }] });
+    const existingUser = await User.findOne({ $or: [{ email }, { phone: normalizedPhone }] });
     if (existingUser) {
       if (existingUser.email === email) {
         return res.status(400).json({
@@ -107,7 +124,7 @@ const signup = async (req, res) => {
           message: 'Email already registered'
         });
       }
-      if (existingUser.phone === phone) {
+      if (existingUser.phone === normalizedPhone) {
         return res.status(400).json({
           success: false,
           message: 'Phone number already registered'
@@ -126,7 +143,7 @@ const signup = async (req, res) => {
     const user = await User.create({
       name,
       email,
-      phone,
+      phone: normalizedPhone,
       password: hashedPassword,
       storeName,
       isVerified: false,
@@ -135,13 +152,16 @@ const signup = async (req, res) => {
     });
 
     // Send OTP
-    await sendOTP(phone, otp, name);
+    await sendOTP(normalizedPhone, otp, name);
+
+    // Mask phone number safely (e.g. +91******223)
+    const maskedPhone = normalizedPhone.substring(0, 3) + '******' + normalizedPhone.substring(normalizedPhone.length - 3);
 
     res.status(201).json({
       success: true,
       message: 'OTP sent to your phone number',
       userId: user._id,
-      phone: phone.replace(/(\d{3})\d{4}(\d{3})/, '$1****$2') // Mask phone number
+      phone: maskedPhone
     });
   } catch (error) {
     console.error('Signup error:', error);
@@ -244,8 +264,10 @@ const login = async (req, res) => {
       });
     }
 
+    const normalizedPhone = normalizePhone(phone);
+
     // Find user by phone
-    const user = await User.findOne({ phone });
+    const user = await User.findOne({ phone: normalizedPhone });
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -372,8 +394,10 @@ const forgetPassword = async (req, res) => {
       });
     }
 
+    const normalizedPhone = normalizePhone(phone);
+
     // Find user by phone
-    const user = await User.findOne({ phone });
+    const user = await User.findOne({ phone: normalizedPhone });
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -393,11 +417,14 @@ const forgetPassword = async (req, res) => {
     // Send OTP with personalized message
     await sendOTP(user.phone, otp, user.name);
 
+    // Mask phone number safely (e.g. +91******223)
+    const maskedPhone = user.phone.substring(0, 3) + '******' + user.phone.substring(user.phone.length - 3);
+
     res.json({
       success: true,
       message: 'OTP sent to your phone number',
       userId: user._id,
-      phone: user.phone.replace(/(\d{3})\d{4}(\d{3})/, '$1****$2') // Mask phone number
+      phone: maskedPhone
     });
   } catch (error) {
     console.error('Forget password error:', error);
