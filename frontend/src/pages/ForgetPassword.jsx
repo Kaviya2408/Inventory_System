@@ -5,7 +5,7 @@ import { API_URL } from '../config';
 
 function ForgetPassword() {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1); // 1: phone, 2: OTP & new password
+  const [step, setStep] = useState(1); // 1: phone, 2: OTP, 3: new password
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -45,6 +45,32 @@ function ForgetPassword() {
     }
   };
 
+  const handleVerifyOTP = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch(`${API_URL}/api/auth/verify-reset-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, otp })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setStep(3);
+      } else {
+        setError(data.message || 'OTP verification failed');
+      }
+    } catch (err) {
+      setError('Connection error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleResetPassword = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -56,8 +82,12 @@ function ForgetPassword() {
       return;
     }
 
-    if (newPassword.length < 6) {
-      setError('Password must be at least 6 characters');
+    // Strict password requirements check
+    const hasCapital = /[A-Z]/.test(newPassword);
+    const hasNumber = /[0-9]/.test(newPassword);
+    const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(newPassword);
+    if (newPassword.length < 8 || !hasCapital || !hasNumber || !hasSpecial) {
+      setError('Password must be at least 8 characters long and contain at least 1 uppercase letter, 1 number, and 1 special character');
       setLoading(false);
       return;
     }
@@ -90,18 +120,26 @@ function ForgetPassword() {
           <div className="auth-logo">
             <ShoppingBag size={40} />
           </div>
-          <h1>{step === 1 ? 'Reset Password' : 'Verify & Reset'}</h1>
-          <p>{step === 1 ? 'Enter your phone number to receive OTP' : `Enter OTP sent to ${maskedPhone}`}</p>
+          <h1>
+            {step === 1 && 'Reset Password'}
+            {step === 2 && 'Verify OTP'}
+            {step === 3 && 'Create New Password'}
+          </h1>
+          <p>
+            {step === 1 && 'Enter your phone number to receive OTP'}
+            {step === 2 && `Enter OTP sent to ${maskedPhone} (valid for 1 min)`}
+            {step === 3 && 'Please set a secure, strong password'}
+          </p>
         </div>
 
-        {step === 1 ? (
-          <form onSubmit={handleSendOTP} className="auth-form">
-            {error && (
-              <div className="auth-error">
-                {error}
-              </div>
-            )}
+        {error && (
+          <div className="auth-error">
+            {error}
+          </div>
+        )}
 
+        {step === 1 && (
+          <form onSubmit={handleSendOTP} className="auth-form">
             <div className="form-group">
               <label>Phone Number</label>
               <div className="input-with-icon">
@@ -129,14 +167,10 @@ function ForgetPassword() {
               Back to Login
             </button>
           </form>
-        ) : (
-          <form onSubmit={handleResetPassword} className="auth-form">
-            {error && (
-              <div className="auth-error">
-                {error}
-              </div>
-            )}
+        )}
 
+        {step === 2 && (
+          <form onSubmit={handleVerifyOTP} className="auth-form">
             <div className="form-group">
               <label>Enter OTP</label>
               <input
@@ -153,6 +187,23 @@ function ForgetPassword() {
               />
             </div>
 
+            <button type="submit" className="auth-submit-btn" disabled={loading}>
+              {loading ? 'Verifying...' : 'Verify OTP'}
+            </button>
+
+            <button
+              type="button"
+              className="auth-back-btn"
+              onClick={() => setStep(1)}
+            >
+              <ArrowLeft size={16} style={{ marginRight: '8px' }} />
+              Back
+            </button>
+          </form>
+        )}
+
+        {step === 3 && (
+          <form onSubmit={handleResetPassword} className="auth-form">
             <div className="form-group">
               <label>New Password</label>
               <div className="input-with-icon">
@@ -161,7 +212,10 @@ function ForgetPassword() {
                   type={showPassword ? 'text' : 'password'}
                   placeholder="Enter new password"
                   value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
+                  onChange={(e) => {
+                    setNewPassword(e.target.value);
+                    setError('');
+                  }}
                   required
                   autoComplete="new-password"
                 />
@@ -183,7 +237,10 @@ function ForgetPassword() {
                   type={showConfirmPassword ? 'text' : 'password'}
                   placeholder="Confirm new password"
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    setError('');
+                  }}
                   required
                   autoComplete="new-password"
                 />
@@ -204,7 +261,7 @@ function ForgetPassword() {
             <button
               type="button"
               className="auth-back-btn"
-              onClick={() => setStep(1)}
+              onClick={() => setStep(2)}
             >
               <ArrowLeft size={16} style={{ marginRight: '8px' }} />
               Back

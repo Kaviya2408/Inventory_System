@@ -42,6 +42,21 @@ const normalizePhone = (phone) => {
   return cleaned;
 };
 
+// Validate email format
+const validateEmail = (email) => {
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  return emailRegex.test(email);
+};
+
+// Validate password strength: min 8 characters, 1 capital letter, 1 number, 1 special character
+const validatePassword = (password) => {
+  if (!password || password.length < 8) return false;
+  const hasCapital = /[A-Z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+  return hasCapital && hasNumber && hasSpecial;
+};
+
 // Generate 6-digit OTP
 const generateOTP = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -60,9 +75,9 @@ const sendOTP = async (phone, otp, userName = null) => {
     // Create personalized and formal message
     let messageBody;
     if (userName) {
-      messageBody = `Hi ${userName}!\n\nWelcome to Inventory Intelligence System.\n\nYour verification code is: ${otp}\n\nThis code is valid for 10 minutes only. Please do not share this code with anyone for security reasons.\n\nThank you for choosing us!\n\nBest regards,\nInventory Intelligence Team`;
+      messageBody = `Hi ${userName}!\n\nWelcome to Inventory Intelligence System.\n\nYour verification code is: ${otp}\n\nThis code is valid for 1 minute only. Please do not share this code with anyone for security reasons.\n\nThank you for choosing us!\n\nBest regards,\nInventory Intelligence Team`;
     } else {
-      messageBody = `Welcome to Inventory Intelligence System!\n\nYour verification code is: ${otp}\n\nThis code is valid for 10 minutes only. Please do not share this code with anyone for security reasons.\n\nThank you!\n\nBest regards,\nInventory Intelligence Team`;
+      messageBody = `Welcome to Inventory Intelligence System!\n\nYour verification code is: ${otp}\n\nThis code is valid for 1 minute only. Please do not share this code with anyone for security reasons.\n\nThank you!\n\nBest regards,\nInventory Intelligence Team`;
     }
 
     console.log(`📱 Sending OTP to ${formattedPhone}: ${otp}`);
@@ -104,6 +119,22 @@ const signup = async (req, res) => {
       });
     }
 
+    // Improve email validation
+    if (!validateEmail(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid email address'
+      });
+    }
+
+    // Validate password strength
+    if (!validatePassword(password)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 8 characters long and contain at least 1 uppercase letter, 1 number, and 1 special character'
+      });
+    }
+
     // Validate phone number format (basic validation)
     const phoneRegex = /^[+]?[\d\s-()]+$/;
     if (!phoneRegex.test(phone)) {
@@ -134,7 +165,7 @@ const signup = async (req, res) => {
 
     // Generate OTP
     const otp = generateOTP();
-    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const otpExpiry = new Date(Date.now() + 1 * 60 * 1000); // 1 minute
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -407,7 +438,7 @@ const forgetPassword = async (req, res) => {
 
     // Generate OTP
     const otp = generateOTP();
-    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const otpExpiry = new Date(Date.now() + 1 * 60 * 1000); // 1 minute
 
     // Save OTP
     user.otp = otp;
@@ -428,6 +459,56 @@ const forgetPassword = async (req, res) => {
     });
   } catch (error) {
     console.error('Forget password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error. Please try again.'
+    });
+  }
+};
+
+// Verify OTP and proceed to reset password
+const verifyResetOTP = async (req, res) => {
+  try {
+    const { userId, otp } = req.body;
+
+    if (!userId || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'User ID and OTP are required'
+      });
+    }
+
+    // Find user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Check OTP expiry
+    if (new Date() > user.otpExpiry) {
+      return res.status(400).json({
+        success: false,
+        message: 'OTP expired. Please request a new one.'
+      });
+    }
+
+    // Verify OTP
+    if (user.otp !== otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid OTP'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'OTP verified successfully'
+    });
+  } catch (error) {
+    console.error('Verify reset OTP error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error. Please try again.'
@@ -473,10 +554,10 @@ const resetPassword = async (req, res) => {
     }
 
     // Validate new password
-    if (newPassword.length < 6) {
+    if (!validatePassword(newPassword)) {
       return res.status(400).json({
         success: false,
-        message: 'Password must be at least 6 characters'
+        message: 'Password must be at least 8 characters long and contain at least 1 uppercase letter, 1 number, and 1 special character'
       });
     }
 
@@ -607,6 +688,7 @@ module.exports = {
   verifySignupOTP,
   login,
   forgetPassword,
+  verifyResetOTP,
   resetPassword,
   getCurrentUser,
   updateProfile,

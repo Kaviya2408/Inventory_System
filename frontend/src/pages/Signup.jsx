@@ -41,8 +41,20 @@ function Signup() {
       return;
     }
 
-    if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters');
+    // Improve email validation on frontend
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(formData.email)) {
+      setError('Please enter a valid email address');
+      setLoading(false);
+      return;
+    }
+
+    // Validate password strength: min 8 chars, 1 capital, 1 number, 1 special character
+    const hasCapital = /[A-Z]/.test(formData.password);
+    const hasNumber = /[0-9]/.test(formData.password);
+    const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(formData.password);
+    if (formData.password.length < 8 || !hasCapital || !hasNumber || !hasSpecial) {
+      setError('Password must be at least 8 characters long and contain at least 1 uppercase letter, 1 number, and 1 special character');
       setLoading(false);
       return;
     }
@@ -112,7 +124,7 @@ function Signup() {
             <ShoppingBag size={40} />
           </div>
           <h1>{step === 1 ? 'Create Account' : 'Verify Phone'}</h1>
-          <p>{step === 1 ? 'Start managing your inventory today' : `Enter the OTP sent to ${maskedPhone}`}</p>
+          <p>{step === 1 ? 'Start managing your inventory today' : `Enter the OTP sent to ${maskedPhone} (valid for 1 min)`}</p>
         </div>
 
         {step === 1 ? (

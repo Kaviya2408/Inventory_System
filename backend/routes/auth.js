@@ -8,6 +8,7 @@ router.post('/signup', authController.signup);
 router.post('/verify-signup', authController.verifySignupOTP);
 router.post('/login', authController.login);
 router.post('/forget-password', authController.forgetPassword);
+router.post('/verify-reset-otp', authController.verifyResetOTP);
 router.post('/reset-password', authController.resetPassword);
 
 // Protected routes (requires authentication middleware)
