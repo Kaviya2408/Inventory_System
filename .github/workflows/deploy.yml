@@ -28,5 +28,5 @@ jobs:
 
             cd ../frontend
             rm -rf dist
-            npm install
+            npm installzz
             npm run build
