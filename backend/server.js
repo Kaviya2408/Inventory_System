@@ -23,8 +23,8 @@ app.use(cors({
   credentials: true
 }));
 
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 app.use(morgan('dev'));
 
 // Static files for production
@@ -49,18 +49,25 @@ app.get('/api/health', (req, res) => {
 // Serve static files - MUST come before catch-all route
 app.use(express.static(path.join(__dirname, "../frontend/dist")));
 
-// Catch-all for React router - MUST be last
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "../frontend/dist", "index.html"));
-});
-
-// Error handling middleware
+// Error handling middleware - MUST come before catch-all
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({
     error: 'Something went wrong!',
     message: err.message
   });
+});
+
+// Catch-all for React router - MUST be last, and only for non-API routes
+app.get("*", (req, res) => {
+  // Don't catch API routes
+  if (req.path.startsWith('/api')) {
+    return res.status(404).json({
+      success: false,
+      message: 'API endpoint not found'
+    });
+  }
+  res.sendFile(path.join(__dirname, "../frontend/dist", "index.html"));
 });
 
 // Start server
